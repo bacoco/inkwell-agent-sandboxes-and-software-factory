@@ -32,7 +32,11 @@ claude               # boot Claude Code in the repo root
 /prime               # orient on all three tiers (out-loop orchestrator, in-loop orchestrator, software factory), check live state
 ```
 
-`/install` and `/prime` live in `.claude/commands/`. `/install` checks the toolchain, installs app deps, verifies `.env`, and runs the `just sbx manage doctor` preflight without starting anything. `/prime` then walks the agent through the command surface, the specs, and the measured gotchas.
+`/install` and `/prime` live in `.claude/commands/`. `/install` checks the
+toolchain, installs app deps, prepares the local Pi registry without copying
+secret values, verifies `.env`, and runs the `just sbx manage doctor` preflight
+without starting anything. `/prime` then walks the agent through the command
+surface, the specs, and the measured gotchas.
 
 Once oriented, you operate the whole system by talking to the agent. Two skills carry the knowledge, so you describe intent and the agent runs the right recipes:
 
@@ -43,8 +47,9 @@ Once oriented, you operate the whole system by talking to the agent. Two skills 
 
 ```bash
 cp .env.sample .env                  # add OPENROUTER_PROVISIONING_KEY (host-only, never leaves)
+just local setup                     # install/validate ~/.pi/agent/models.json at mode 0600
 cd apps/inkwell && bun install       # app deps
-just sbx manage doctor               # six-check preflight: ssh, key, helpers, rates, adw layer
+just sbx manage doctor               # six-check preflight: ssh, keys, helpers, registry, adw layer
 just inkwell test                    # 30 tests green = the payload works
 ```
 

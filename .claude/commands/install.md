@@ -62,6 +62,10 @@ Optional (only for a host-side orchestrator via `just local`; the VM image alrea
 
 ### Step 3 — Install Dependencies
 
+- Pi model registry: run `just local setup`. This creates the registry from the
+  public template only when it is absent, preserves existing content, enforces
+  mode `0600`, and requires `env:OPENROUTER_API_KEY`. It never reads or copies
+  `OPENROUTER_PROVISIONING_KEY`.
 - App: `cd apps/inkwell && bun install` (gate — the app needs it).
 - Visualizer (optional, only to boot `just obs ui` locally): `cd .claude/skills/sssf/apps/visualizer && bun install`. Skip with a note if the user only wants the app + factory.
 
@@ -69,13 +73,16 @@ Optional (only for a host-side orchestrator via `just local`; the VM image alrea
 
 - `.env` exists.
 - Rosters present: list `adws/adw_sssf_config/*.yaml` (expect five: default, deepestseek, frontier, open-weights, top-speed).
-- Model registry present: `sandbox_mount/guest/models.json.tmpl` exists and each model carries a full four-field `cost` block (a partial block drops the whole roster). `just sbx manage doctor` also asserts this.
+- Model registry ready: `just local check-models` passes against
+  `PI_MODELS_PATH` or `~/.pi/agent/models.json`, including the inference-key
+  placeholder, complete four-field cost blocks, and mode `0600`.
 - Skills present: `.claude/skills/sssf/SKILL.md` and `.claude/skills/sssf-sandbox-orchestrator/SKILL.md`.
 
 ### Step 5 — Verify Readiness (never start anything)
 
 - Versions: `bun --version`, `uv --version`, `just --version`, `git --version`.
 - Namespaces resolve: `just --list inkwell adw sbx obs local` (each lists).
+- Local model registry: `just local check-models` (gate before any agent call).
 - App suite green: `just inkwell test` (30 tests — this exits, it does not serve).
 - sbx preflight (only if `OPENROUTER_PROVISIONING_KEY` is set and `ssh exe.dev` is reachable): `just sbx manage doctor` — the six-check host preflight, ends with `sbx doctor: OK`. If the key is blank, mark this `skipped (mount-only)`, not failed.
 
@@ -87,6 +94,7 @@ Print a status table with `ok` / `warn` / `skip` / `fail` for every check above,
 claude                 # then /prime to orient on all three tiers
 just inkwell run       # boot the app on :4501
 just inkwell test      # the 30-test suite the factory runs
+just local check-models # local Pi registry, no key values printed
 just sbx manage doctor # host preflight (needs the provisioning key)
 just sbx mount my-task # stand up a throwaway VM -> running factory (billable; your call)
 ```

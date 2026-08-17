@@ -30,6 +30,6 @@ doctor:
     chk "OPENROUTER_PROVISIONING_KEY set"  '[ -n "${OPENROUTER_PROVISIONING_KEY:-}" ]'
     chk "run_record helper runs"           'sandbox_mount/host/run_record.py list'
     chk "provisioner present"              '[ -x sandbox_mount/guest/provision.sh ]'
-    chk "models template has rates"        'python3 -c "import json;m=json.load(open(\"sandbox_mount/guest/models.json.tmpl\"))[\"providers\"][\"openrouter\"][\"models\"];assert all(set(x[\"cost\"])=={\"input\",\"output\",\"cacheRead\",\"cacheWrite\"} for x in m)"'
+    chk "local pi registry ready"          'just local check-models'
     chk "adw layer resolves"               'just --list adw'
     [ "$ok" -eq 0 ] && echo "  sbx doctor: OK" || { echo "  sbx doctor: FAILED"; exit 1; }
