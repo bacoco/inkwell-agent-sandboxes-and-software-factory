@@ -75,6 +75,9 @@ def main() -> int:
           root / "adws" / "adw_sssf_config" / "sssf.config.yaml",
           args.force, stamped, skipped)
     stamp(TEMPLATES / "env.sample", root / ".env.sample", args.force, stamped, skipped)
+    stamp(TEMPLATES / "models.json.tmpl",
+          root / "adws" / "adw_data" / "models.json.tmpl",
+          args.force, stamped, skipped)
     # The recipes are part of the operating experience, and several cookbooks
     # plus the run banner tell you to use them, so a stamped repo has to have
     # them. Skipped like any other file if the repo already has a justfile.
@@ -89,10 +92,11 @@ def main() -> int:
         print(f"  skipped (already exist, use --force to overwrite): {len(skipped)}")
     print("\nnext steps:")
     print("  1. cp .env.sample .env   # then set the key(s) your roster needs")
-    print("  2. just demo             # two cheap read-only runs, end to end")
-    print("  3. just sessions         # what just happened")
-    print("  4. just obs              # the trace UI, needs bun")
-    print("\n  no just? the raw form of step 2 is:")
+    print("  2. just setup            # install/validate the public Pi model roster")
+    print("  3. just demo             # two cheap read-only runs, end to end")
+    print("  4. just sessions         # what just happened")
+    print("  5. just obs              # the trace UI, needs bun")
+    print("\n  no just? the raw form of the first workflow is:")
     print("     uv run adws/adw_prompt.py \"say hello\" --agent scout")
     return 0
 

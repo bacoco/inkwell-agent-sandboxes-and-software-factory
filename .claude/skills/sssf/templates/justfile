@@ -17,6 +17,57 @@ db     := "adws/adw_data/sssf.db"
 default:
     @just --list
 
+# Install the public model roster without copying any host key. Existing
+# content is preserved and must pass the same validation.
+setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    template="adws/adw_data/models.json.tmpl"
+    target="${PI_MODELS_PATH:-$HOME/.pi/agent/models.json}"
+    [[ -f "$template" ]] || { echo "setup: missing $template" >&2; exit 1; }
+    [[ ! -L "$target" ]] || { echo "setup: refusing symlink $target" >&2; exit 1; }
+    [[ ! -e "$target" || -f "$target" ]] || { echo "setup: registry is not a regular file: $target" >&2; exit 1; }
+    if [[ ! -e "$target" ]]; then
+      umask 077
+      mkdir -p "$(dirname "$target")"
+      cp "$template" "$target"
+      echo "setup: installed $target"
+    else
+      echo "setup: preserving existing $target"
+    fi
+    chmod 600 "$target"
+    just check-models
+
+# Read-only preflight for the registry used by Pi/ADW calls.
+check-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="${PI_MODELS_PATH:-$HOME/.pi/agent/models.json}"
+    [[ ! -L "$target" && -f "$target" ]] || { echo "models: missing regular registry $target; run: just setup" >&2; exit 1; }
+    python3 - "$target" <<'PY'
+    import json
+    import stat
+    import sys
+    from pathlib import Path
+
+    path = Path(sys.argv[1])
+    try:
+        registry = json.loads(path.read_text(encoding="utf-8"))
+        provider = registry["providers"]["openrouter"]
+        models = provider["models"]
+    except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise SystemExit(f"models: invalid registry {path}: {exc}") from exc
+    if provider.get("apiKey") != "env:OPENROUTER_API_KEY":
+        raise SystemExit("models: apiKey must be env:OPENROUTER_API_KEY")
+    required_cost = {"input", "output", "cacheRead", "cacheWrite"}
+    if not models or any(set(model.get("cost", {})) != required_cost for model in models):
+        raise SystemExit("models: every model needs the complete four-field cost table")
+    mode = stat.S_IMODE(path.stat().st_mode)
+    if mode != 0o600:
+        raise SystemExit(f"models: {path} mode is {mode:o}, expected 600")
+    print(f"models: OK ({len(models)} models, mode 600, inference-key placeholder)")
+    PY
+
 # ── first run ───────────────────────────────────────────────────────────────
 
 # Proves the whole path works: config validated, session minted, agent ran,
@@ -26,7 +77,7 @@ default:
 # (`just --list` shows only the LAST comment line, so that one is the summary.)
 
 # start here: two cheap read-only runs, end to end
-demo:
+demo: setup
     @echo "1/2  adw_prompt: one agent, one prompt"
     uv run adws/adw_prompt.py --config {{config}} --agent scout "reply with a one-line summary of this repo"
     @echo "\n2/2  adw_scout: read-only recon"
@@ -37,27 +88,27 @@ demo:
 # Args pass straight through: "<prompt or path/to/prompt.md>" [--adw-id X]
 
 # one agent, one prompt: just prompt "summarize this repo"
-prompt *ARGS:
+prompt *ARGS: setup
     uv run adws/adw_prompt.py --config {{config}} "$@"
 
 # read-only recon: just scout "where is auth handled"
-scout *ARGS:
+scout *ARGS: setup
     uv run adws/adw_scout.py --config {{config}} "$@"
 
 # plan only: just plan "add a /health endpoint"
-plan *ARGS:
+plan *ARGS: setup
     uv run adws/adw_plan.py --config {{config}} "$@"
 
 # planner, builder, commit: just plan-build "add a /health endpoint"
-plan-build *ARGS:
+plan-build *ARGS: setup
     uv run adws/adw_plan_build.py --config {{config}} "$@"
 
 # plan, build, test, commit: just sdlc "add a /health endpoint"
-sdlc *ARGS:
+sdlc *ARGS: setup
     uv run adws/adw_plan_build_test.py --config {{config}} "$@"
 
 # the full chain, plus review and docs: just simple-sdlc "add a /health endpoint"
-simple-sdlc *ARGS:
+simple-sdlc *ARGS: setup
     uv run adws/adw_simple_sdlc.py --config {{config}} "$@"
 
 # ── watch it ────────────────────────────────────────────────────────────────
